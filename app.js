@@ -1,56 +1,67 @@
 const express = require("express");
 const multer = require("multer");
-const vision = require("@google-cloud/vision");
-const cors = require("cors");
-const helmet = require("helmet");
-require("dotenv").config();
+const { v1: vision } = require("@google-cloud/vision");
+const axios = require("axios");
+const dotenv = require("dotenv");
+
+dotenv.config();
 
 const app = express();
 const upload = multer();
-
-// Initialize the Google Cloud Vision API client
 const client = new vision.ImageAnnotatorClient();
 
-// Middleware
-app.use(cors()); // Enable cross-origin requests
-app.use(helmet()); // Add security headers
-
-// Home Route
-app.get("/", (req, res) => {
-  res.send(`
-    <h1>Food Logging API</h1>
-    <form action="/identify-food" method="POST" enctype="multipart/form-data">
-        <input type="file" name="file" accept="image/*" required />
-        <button type="submit">Identify Food</button>
-    </form>
-  `);
-});
-
-// Endpoint to handle food recognition
-app.post("/identify-food", upload.single("file"), async (req, res) => {
-  try {
-    const imageFile = req.file;
-
-    if (!imageFile) {
-      return res.status(400).send({ error: "No file uploaded" });
+// Endpoint to process food images
+app.post("/analyze", upload.single("image"), async (req, res) => {
+    if (!req.file) {
+        return res.status(400).send({ error: "No file uploaded" });
     }
 
-    console.log("Processing image...");
+    try {
+        console.log("Processing image...");
 
-    // Send the image buffer to the Vision API
-    const [result] = await client.labelDetection({ image: { content: imageFile.buffer } });
-    const labels = result.labelAnnotations.map((label) => label.description);
+        // Use Google Vision API to detect labels
+        const [result] = await client.labelDetection({
+            image: { content: req.file.buffer },
+        });
 
-    console.log("Detected labels:", labels);
+        const foodLabels = result.labelAnnotations
+            .filter(label => label.score >= 0.85) // Only include high-confidence labels
+            .map(label => label.description);
 
-    res.send({ detected_labels: labels });
-  } catch (err) {
-    console.error("Error during image processing:", err);
-    res.status(500).send({ error: "An error occurred during processing" });
-  }
+        console.log("Detected food items:", foodLabels);
+
+        // Fetch calorie data for each detected food item
+        const calorieData = await Promise.all(
+            foodLabels.map(async label => {
+                try {
+                    const response = await axios.get(`https://api.nutritionix.com/v1_1/search/${label}`, {
+                        params: {
+                            appId: process.env.NUTRITION_APP_ID,
+                            appKey: process.env.NUTRITION_API_KEY,
+                        },
+                    });
+
+                    const foodInfo = response.data.hits[0]?.fields;
+                    return foodInfo ? { item: label, calories: foodInfo.nf_calories } : { item: label, calories: "Data not available" };
+                } catch (error) {
+                    console.error(`Error fetching calories for ${label}:`, error.message);
+                    return { item: label, calories: "Error fetching data" };
+                }
+            })
+        );
+
+        res.status(200).json({
+            foodLabels,
+            calorieEstimates: calorieData,
+        });
+    } catch (err) {
+        console.error("Error processing image:", err);
+        res.status(500).send({ error: "An error occurred during image processing" });
+    }
 });
 
-// Server Configuration
+// Server configuration
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, '0.0.0.0', () => console.log(`Server running on http://0.0.0.0:${PORT}`));
-
+app.listen(PORT, () => {
+    console.log(`Server running on http://0.0.0.0:${PORT}`);
+});
