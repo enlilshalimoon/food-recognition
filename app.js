@@ -10,6 +10,25 @@ const app = express();
 const upload = multer();
 const client = new vision.ImageAnnotatorClient();
 
+// Serve an HTML form for image upload
+app.get("/", (req, res) => {
+    res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Food Recognition</title>
+        </head>
+        <body>
+            <h1>Upload an image to analyze food items</h1>
+            <form action="/analyze" method="POST" enctype="multipart/form-data">
+                <input type="file" name="image" accept="image/*" required />
+                <button type="submit">Analyze</button>
+            </form>
+        </body>
+        </html>
+    `);
+});
+
 // Endpoint to process food images
 app.post("/analyze", upload.single("image"), async (req, res) => {
     if (!req.file) {
