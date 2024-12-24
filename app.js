@@ -11,6 +11,39 @@ const app = express();
 const upload = multer();
 const client = new vision.ImageAnnotatorClient();
 
+// Refine food labels dynamically
+function refineFoodLabels(labels) {
+    const irrelevantKeywords = ["Food", "Close-up", "Natural foods", "Staple food"];
+    // Filter out irrelevant labels dynamically
+    const refinedLabels = labels.filter(label => !irrelevantKeywords.includes(label));
+    return refinedLabels;
+}
+
+// Fetch calorie data dynamically for refined labels
+async function getCaloriesForLabels(labels) {
+    const apiKey = process.env.NUTRITION_API_KEY;
+    const appId = process.env.NUTRITION_APP_ID;
+    const results = [];
+
+    for (const label of labels) {
+        const url = `https://api.nutritionix.com/v1_1/search/${encodeURIComponent(label)}?fields=item_name,nf_calories&appId=${appId}&appKey=${apiKey}`;
+        try {
+            const response = await axios.get(url);
+            if (response.data.hits && response.data.hits.length > 0) {
+                const calorieData = response.data.hits[0].fields.nf_calories;
+                results.push({ item: label, calories: calorieData });
+            } else {
+                results.push({ item: label, calories: "No data found" });
+            }
+        } catch (error) {
+            console.error(`Error fetching data for ${label}:`, error.message);
+            results.push({ item: label, calories: "Error fetching data" });
+        }
+    }
+
+    return results;
+}
+
 // Serve an HTML form for image upload
 app.get("/", (req, res) => {
     res.send(`
@@ -39,40 +72,22 @@ app.post("/analyze", upload.single("image"), async (req, res) => {
     try {
         console.log("Processing image...");
 
-        // Use Google Vision API to detect labels
+        // Step 1: Use Google Vision API to detect labels
         const [result] = await client.labelDetection({
             image: { content: req.file.buffer },
         });
+        const labels = result.labelAnnotations.map(label => label.description);
 
-        const foodLabels = result.labelAnnotations
-            .filter(label => label.score >= 0.85) // Only include high-confidence labels
-            .map(label => label.description);
+        // Step 2: Refine labels dynamically
+        const refinedLabels = refineFoodLabels(labels);
 
-        console.log("Detected food items:", foodLabels);
+        // Step 3: Fetch calorie estimates dynamically
+        const calorieEstimates = await getCaloriesForLabels(refinedLabels);
 
-        // Fetch calorie data for each detected food item
-        const calorieData = await Promise.all(
-            foodLabels.map(async label => {
-                try {
-                    const response = await axios.get(`https://api.nutritionix.com/v1_1/search/${label}`, {
-                        params: {
-                            appId: process.env.NUTRITION_APP_ID,
-                            appKey: process.env.NUTRITION_API_KEY,
-                        },
-                    });
-
-                    const foodInfo = response.data.hits[0]?.fields;
-                    return foodInfo ? { item: label, calories: foodInfo.nf_calories } : { item: label, calories: "Data not available" };
-                } catch (error) {
-                    console.error(`Error fetching calories for ${label}:`, error.message);
-                    return { item: label, calories: "Error fetching data" };
-                }
-            })
-        );
-
+        // Step 4: Respond with combined results
         res.status(200).json({
-            foodLabels,
-            calorieEstimates: calorieData,
+            foodLabels: refinedLabels,
+            calorieEstimates: calorieEstimates,
         });
     } catch (err) {
         console.error("Error processing image:", err);
@@ -83,5 +98,5 @@ app.post("/analyze", upload.single("image"), async (req, res) => {
 // Server configuration
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://0.0.0.0:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });
