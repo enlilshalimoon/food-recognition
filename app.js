@@ -13,11 +13,11 @@ const client = new vision.ImageAnnotatorClient();
 
 // Refine food labels dynamically
 function refineFoodLabels(labels) {
-    const irrelevantKeywords = ["Food", "Close-up", "Natural foods", "Staple food"];
+    const irrelevantKeywords = ["Food", "Close-up", "Natural foods", "Staple food", "Fruit", "Produce", "Ingredient"];
     // Filter out irrelevant labels dynamically
-    const refinedLabels = labels.filter(label => !irrelevantKeywords.includes(label));
-    return refinedLabels;
+    return labels.filter(label => !irrelevantKeywords.includes(label));
 }
+
 
 // Fetch calorie data dynamically for refined labels
 async function getCaloriesForLabels(labels) {
@@ -27,22 +27,26 @@ async function getCaloriesForLabels(labels) {
 
     for (const label of labels) {
         const url = `https://api.nutritionix.com/v1_1/search/${encodeURIComponent(label)}?fields=item_name,nf_calories&appId=${appId}&appKey=${apiKey}`;
+        console.log(`Fetching data for ${label}: ${url}`); // Log the API request URL
         try {
             const response = await axios.get(url);
+            console.log(`Response for ${label}:`, response.data); // Log the API response
             if (response.data.hits && response.data.hits.length > 0) {
                 const calorieData = response.data.hits[0].fields.nf_calories;
                 results.push({ item: label, calories: calorieData });
             } else {
+                console.warn(`No calorie data found for ${label}`);
                 results.push({ item: label, calories: "No data found" });
             }
         } catch (error) {
-            console.error(`Error fetching data for ${label}:`, error.message);
+            console.error(`Error fetching data for ${label}:`, error.response?.data || error.message);
             results.push({ item: label, calories: "Error fetching data" });
         }
     }
 
     return results;
 }
+
 
 // Serve an HTML form for image upload
 app.get("/", (req, res) => {
