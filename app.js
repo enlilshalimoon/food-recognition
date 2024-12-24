@@ -1,3 +1,4 @@
+// Updated app.js for GCP
 const express = require("express");
 const multer = require("multer");
 const { v1: vision } = require("@google-cloud/vision");
@@ -81,6 +82,6 @@ app.post("/analyze", upload.single("image"), async (req, res) => {
 
 // Server configuration
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://0.0.0.0:${PORT}`);
 });
