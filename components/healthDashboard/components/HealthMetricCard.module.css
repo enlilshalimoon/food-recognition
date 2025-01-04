@@ -1,0 +1,37 @@
+.metricCard {
+  border-radius: 20px;
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  padding: 20px 16px;
+}
+
+.cardHeader {
+  display: flex;
+  gap: 20px;
+  color: #fff;
+  white-space: nowrap;
+  justify-content: space-between;
+  font: 500 20px Roboto, sans-serif;
+}
+
+.iconWrapper {
+  border-radius: 50%;
+  display: flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+}
+
+.metricValue {
+  color: #fff;
+  font: 900 36px Roboto, sans-serif;
+  margin-top: 16px;
+}
+
+.metricSubtitle {
+  color: #fff;
+  font: 400 12px Roboto, sans-serif;
+  margin-top: 13px;
+}

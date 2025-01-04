@@ -1,0 +1,12 @@
+.weekDays {
+  color: rgba(255, 255, 255, 0.46);
+  margin-top: 26px;
+  font: 900 11px Roboto, sans-serif;
+}
+
+.dates {
+  color: #fff;
+  text-align: center;
+  margin-top: 15px;
+  font: 400 16px Roboto, sans-serif;
+}
