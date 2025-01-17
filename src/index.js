@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom";
-import HealthDashboard from "./components/HealthDashboard";
+import { HealthDashboard } from "./components/healthDashboard/HealthDashboard.jsx";
 
 const App = () => {
   return (
